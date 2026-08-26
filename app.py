@@ -62,10 +62,15 @@ def extract():
     url=body.get("url","").strip()
     vid=extract_video_id(url)
     if not vid: return jsonify(error="無法解析 YouTube 連結，請貼上完整 youtube.com/watch?v= 或 youtu.be/ 連結"),400
-    try:
-        title,text=fetch_transcript(vid)
-    except Exception as e:
-        return jsonify(error=f"字幕抓取失敗: {e} (可能是該影片無字幕/需登入/地區限制)"),400
+    manual_text = body.get("manual_text","").strip()
+    if manual_text and len(manual_text)>=20:
+        title = fetch_title(vid) + " (手動字幕)"
+        text = manual_text
+    else:
+        try:
+            title,text=fetch_transcript(vid)
+        except Exception as e:
+            return jsonify(error=f"字幕抓取失敗: {e}", need_manual=True),400
     if len(text)<20: return jsonify(error="字幕內容過短"),400
     job_id=uuid.uuid4().hex
     _out(job_id)
