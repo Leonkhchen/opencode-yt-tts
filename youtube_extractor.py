@@ -21,10 +21,24 @@ def fetch_transcript(video_id: str, langs: list[str] | None = None) -> tuple[str
     from youtube_transcript_api import YouTubeTranscriptApi
     langs = langs or ["zh-TW", "zh-Hant", "zh", "en"]
     try:
-        fetched = YouTubeTranscriptApi.get_transcript(video_id, languages=langs)
-    except Exception:
-        fetched = YouTubeTranscriptApi.get_transcript(video_id)
-    text = "\n".join(seg["text"] for seg in fetched)
+        if hasattr(YouTubeTranscriptApi, "get_transcript"):
+            try:
+                fetched = YouTubeTranscriptApi.get_transcript(video_id, languages=langs)
+            except Exception:
+                fetched = YouTubeTranscriptApi.get_transcript(video_id)
+        else:
+            api = YouTubeTranscriptApi()
+            if hasattr(api, "fetch"):
+                fetched = api.fetch(video_id, languages=langs)
+            else:
+                fetched = api.get_transcript(video_id, languages=langs)
+            if fetched and hasattr(fetched, "snippets"):
+                fetched = [{"text": s.text} for s in fetched.snippets]
+            elif fetched and len(fetched)>0 and hasattr(fetched[0], "text"):
+                fetched = [{"text": s.text} for s in fetched]
+    except Exception as e:
+        raise e
+    text = "\n".join(seg["text"] if isinstance(seg, dict) else getattr(seg,"text","") for seg in fetched)
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     title = fetch_title(video_id)
